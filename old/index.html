@@ -4,15 +4,13 @@
 
 <head>
     <meta charset="utf-8">
-    <link rel="shortcut icon" href='icon.ico' type="image/x-icon" />
+    <link rel="shortcut icon" href='img/icon.ico' type="image/x-icon" />
     <title>TheBus Locator</title>
 
     <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v0.44.0/mapbox-gl.css' rel='stylesheet' />
     <!-- <link href='http://mapbox-gl-inspect.lukasmartinelli.ch/dist/mapbox-gl-inspect.css' rel='stylesheet' /> -->
 
     <style>
-     
-
         body {
             background: #404040;
             color: #f8f8f8;
@@ -21,9 +19,6 @@
             padding: 0;
             -webkit-font-smoothing: antialiased;
         }
-
-        /* The page is split between map and sidebar - the sidebar gets 1/3, map
-gets 2/3 of the page. You can adjust this to your personal liking. */
 
         .sidebar {
             width: 25%;
@@ -83,6 +78,12 @@ gets 2/3 of the page. You can adjust this to your personal liking. */
 
         var totalURL = baseURL + key + endPart;
         //console.log(totalURL);
+        var newGeoJSON = {};
+        newGeoJSON['type'] = 'FeatureCollection';
+        newGeoJSON['features'] = [];
+
+
+
 
         getBusData();
 
@@ -94,8 +95,6 @@ gets 2/3 of the page. You can adjust this to your personal liking. */
                 method: 'GET',
                 contentType: 'application/x-www-form-urlencoded',
                 success: function (data) {
-
-                    //console.log(data);
                     processData(data);
                 }
                 /*error: function(err) {
@@ -105,7 +104,6 @@ gets 2/3 of the page. You can adjust this to your personal liking. */
             })
 
         }
-
 
         function processData(data) {
 
@@ -119,7 +117,6 @@ gets 2/3 of the page. You can adjust this to your personal liking. */
 
             convertToJSON(parsedxml);
 
-
         }
 
         function convertToJSON(xmlText) {
@@ -128,22 +125,33 @@ gets 2/3 of the page. You can adjust this to your personal liking. */
             var jsonObj = x2js.xml2json(xmlText);
             // console.log(JSON.stringify(jsonObj.vehicles));
 
+            $.getJSON("geojsons/oahu.geojson", function (oahu) {
 
-            createGeoJSON(jsonObj);
+                createGeoJSON(jsonObj, oahu);
+            })
 
+            //createGeoJSON(jsonObj);
 
         }
 
-        function createGeoJSON(jsonObj) {
+        function createGeoJSON(jsonObj, oahu) {
 
-            var newGeoJSON = {};
-            newGeoJSON['type'] = 'FeatureCollection';
-            newGeoJSON['features'] = [];
+
 
             for (var x in jsonObj.vehicles.vehicle) {
 
+                var lat = Number(jsonObj.vehicles.vehicle[x].latitude),
+                    lng = Number(jsonObj.vehicles.vehicle[x].longitude),
+                    oahuBbox = turf.bbox(oahu),
+                    oahuBounds = turf.bboxPolygon(oahuBbox),
+                    currentPoint = turf.point([lng, lat]);
+
                 if (jsonObj.vehicles.vehicle[x].trip == 'null_trip') {
                     continue;
+
+                } else if (!turf.booleanPointInPolygon(currentPoint, oahuBounds)) {
+                    continue;
+
                 } else {
 
                     var newFeature = {
@@ -166,57 +174,36 @@ gets 2/3 of the page. You can adjust this to your personal liking. */
                 }
 
             }
-
-
             createMap(newGeoJSON);
-
         }
-
 
         function createMap(newGeoJSON) {
 
-            console.log(newGeoJSON);
-
-            var layer1 = map.addLayer({
-
-                'id': 'busLocation',
-                'type': 'circle',
-                'source': {
-                    'type': 'geojson',
-                    'data': newGeoJSON
-                },
-                "paint": {
-                    "circle-radius": 8,
-                    "circle-color": "red"
-                },
-
-                'tolerance': 0.4
-
+            map.addSource('busLocation', {
+                type: 'geojson',
+                data: newGeoJSON
             });
 
+            map.addLayer({
+                'id': 'busLocation',
+                'type': 'symbol',
+                'source': 'busLocation',
+                'tolerance': 0.4,
+                /* "paint": {
+                     "circle-radius": 8,
+                     "circle-color": "red"
+                 }, */
+                "layout": {
+                    "icon-image": "bus-15"
+                }
+            });
 
-            /* var bbox = turf.bbox(newGeoJSON);
-
-             map.fitBounds(bbox, {
-                 padding: 20
-             }) */
-
-            // console.log(JSON.stringify(newGeoJSON));
-
-
+            map.on('load', function () {
+                window.setInterval(function () {
+                    map.getSource('busLocation').setData(url);
+                }, 8000);
+            })
         }
-
-        /*  map.on('load', function () {
-
-              d3.json('geojsons/oahu.geojson', function (geojson) {
-
-
-
-                  addLayer(geojson);
-                  //console.log(geojson);
-
-              })
-          }); */
     </script>
 </body>
 
