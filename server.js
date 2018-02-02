@@ -5,7 +5,8 @@ var fs = require('fs'),
     bodyParser = require('body-parser'),
     request = require('request'),
     parseString = require('xml2js').parseString,
-    turf = require('@turf/turf');
+    turf = require('@turf/turf'),
+    server = require('http').Server(app);
 
 app.use(cors());
 app.use(bodyParser.urlencoded({
@@ -17,19 +18,27 @@ app.set('views', __dirname + '/public/views/');
 
 var newGeoJSON = {};
 newGeoJSON['type'] = 'FeatureCollection';
-newGeoJSON['features'] = [];
+//newGeoJSON['features'] = [];
 
 app.get('/', function (req, res) {
 
-    request({
-        url: 'http://localhost:8080/vehicleData',
-    }, function(err, resp, body) {
-        if (err) throw err;
+    /*  request({
 
-        var bus = body;
-        res.render('index', {bus: bus})
+          url: 'http://localhost:8080/vehicleData',
+      }, function (err, resp, body) {
+          if (err) throw err;
 
-    })
+          var bus = body;
+          res.render('index', {
+              //bus: bus
+          })
+
+      }) */
+
+    res.render('index');
+
+    //setInterval(makeRequest, 2000);
+
 })
 
 app.get('/vehicleData', function (req, res) {
@@ -41,8 +50,12 @@ app.get('/vehicleData', function (req, res) {
 
     var combo = baseURL + key + query;
 
+
     request({
         url: combo,
+        headers: {
+            'Access-Control-Allow-Origin': '*'
+        }
     }, function (error, response, body) {
         if (error) {
             //console.log(error);
@@ -67,7 +80,10 @@ app.get('/vehicleData', function (req, res) {
 
     })
 
+
     function createGeoJSON(jsonObj) {
+
+        newGeoJSON['features'] = [];
 
         //read outline of oahu
         fs.readFile('geojsons/oahu.geojson', 'utf8', (err, data) => {
@@ -95,6 +111,8 @@ app.get('/vehicleData', function (req, res) {
 
                 } else {
 
+                    
+
                     var newFeature = {
                         "type": "Feature",
                         "geometry": {
@@ -114,11 +132,11 @@ app.get('/vehicleData', function (req, res) {
                     newGeoJSON['features'].push(newFeature);
                 }
             }
-            res.send(newGeoJSON);
+            res.json(newGeoJSON);
         })
         //console.log(data.vehicles.vehicle[3]);
     }
 
 })
 
-app.listen(8080);
+server.listen(8080);
